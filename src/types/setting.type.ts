@@ -1,0 +1,8 @@
+export type GenerationMode = "GENERATE" | "EXTRACT"
+export type Language = "Auto" | "English" | "Tiếng Việt" | "Spanish" | "French" | "German"
+export type QuestionType = "Multiple Choice" | "True/False" | "Free Response"
+export type Difficulty = "Easy" | "Medium" | "Hard"
+export type Visibility = "Public" | "Private" | "Unlisted"
+export type Mode = "Quiz" | "Flashcard" | "Study Guide"
+export type Task = "Generate Quiz" | "Review" | "Test Knowledge"
+export type ParsingMode = "Fast" | "Balanced" | "Thorough"
