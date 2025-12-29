@@ -45,7 +45,7 @@ export default function QuizPage() {
   const [isSubmited, setIsSubmited] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  // 2) Sửa chỗ tính currentQuestions để an toàn khi quiz chưa sẵn
+  
   const QUESTIONS_PER_PAGE = 5;
   const currentQuestions =
     quiz?.questions?.slice(
@@ -134,6 +134,23 @@ export default function QuizPage() {
       ...prev,
       [questionId]: answer,
     }));
+  };
+
+  // --- HÀM MỚI: Xử lý chuyển trang và cuộn đến câu hỏi ---
+  const scrollToQuestion = (questionId: number, index: number) => {
+    const targetPage = Math.floor(index / QUESTIONS_PER_PAGE);
+    
+    if (targetPage !== currentPage) {
+      setCurrentPage(targetPage);
+    }
+
+    // Đợi DOM cập nhật xong mới cuộn
+    setTimeout(() => {
+      const element = document.getElementById(`question-${questionId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
   };
 
   const calculateProgress = () => {
@@ -255,6 +272,7 @@ export default function QuizPage() {
       setIsSubmitting(false);
     }
   }, [id, startTime, quiz, quizAnswers, isSubmitting, isSubmited, token]);
+  
   if (error) {
     return (
       <QueryError
@@ -277,6 +295,7 @@ export default function QuizPage() {
       <Navigation />
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* SIDEBAR */}
           <Card className="lg:col-span-1 sticky top-4 h-fit">
             <CardHeader>
               <CardTitle className="text-lg font-bold truncate">
@@ -311,28 +330,43 @@ export default function QuizPage() {
                   </span>
                 </div>
 
+                {/* --- PHẦN SIDEBAR SỬA ĐỔI MỚI --- */}
                 <div className="grid grid-cols-5 gap-2">
                   {quiz.questions.map((q: any, index: number) => {
                     const pageOfQuestion = Math.floor(
                       index / QUESTIONS_PER_PAGE
                     );
                     const isInCurrentPage = pageOfQuestion === currentPage;
+
+                    // Kiểm tra xem câu này đã làm chưa
                     const answer = quizAnswers[q.id];
                     const isAnswered = Array.isArray(answer)
                       ? answer.length > 0
-                      : answer !== "";
+                      : answer !== "" && answer !== undefined;
 
                     return (
                       <Button
                         key={q.id}
                         size="icon"
-                        onClick={() => setCurrentPage(pageOfQuestion)}
+                        // Sử dụng hàm scrollToQuestion thay vì chỉ setCurrentPage
+                        onClick={() => scrollToQuestion(q.id, index)}
                         className={`
-                          ${isInCurrentPage ? "border-2 border-primary" : ""}
-                          ${isAnswered ? "bg-gray-700 text-white" : ""}
-                          hover:bg-primary hover:text-white transition
+                          transition-all duration-200
+                          
+                          ${/* Viền xám nếu đang ở trang đó */ ""}
+                          ${isInCurrentPage ? "border-2 border-gray-400 ring-2 ring-indigo-100 z-10" : ""}
+
+                          ${/* Màu xanh lá nếu đã làm */ ""}
+                          ${isAnswered 
+                              ? "bg-green-500 text-white hover:bg-green-700 border-green-600" 
+                              : ""
+                          }
+
+                          ${/* Màu mặc định nếu chưa làm */ ""}
+                          ${!isAnswered && !isInCurrentPage ? "text-gray-500 hover:bg-gray-300" : ""}
                         `}
-                        variant="outline"
+                        // Nếu đã trả lời thì dùng 'default' để hiển thị nền màu, chưa thì 'outline'
+                        variant={isAnswered ? "default" : "outline"}
                       >
                         {index + 1}
                       </Button>
@@ -357,17 +391,20 @@ export default function QuizPage() {
             </CardContent>
           </Card>
 
+          {/* MAIN CONTENT */}
           <div className="lg:col-span-3 space-y-6">
             <Card>
               <CardContent>
                 {currentQuestions.map((q: any, idx: number) => (
-                  <QuestionCard
-                    key={q.id}
-                    index={currentPage * QUESTIONS_PER_PAGE + idx}
-                    data={q}
-                    answer={quizAnswers[q.id]}
-                    onAnswer={(val) => handleAnswerChange(q.id, val)}
-                  />
+                  // --- THÊM THẺ DIV ĐỂ GẮN ID CHO SCROLL ---
+                  <div key={q.id} id={`question-${q.id}`} className="scroll-mt-24">
+                    <QuestionCard
+                      index={currentPage * QUESTIONS_PER_PAGE + idx}
+                      data={q}
+                      answer={quizAnswers[q.id]}
+                      onAnswer={(val) => handleAnswerChange(q.id, val)}
+                    />
+                  </div>
                 ))}
 
                 <div className="flex justify-between mt-8">
@@ -419,6 +456,7 @@ export default function QuizPage() {
     </div>
   );
 }
+
 // 1) Tạo component skeleton
 function QuizSkeleton() {
   return (

@@ -130,7 +130,7 @@ export function QuizSettingsForm() {
       </div>
 
       <Card className="border-green-500/20">
-        <CardContent className="pt-6">
+        <CardContent className="pt-1">
           <div className="grid gap-3">
             <div className="space-y-2">
               <Label className="text-green-800">
@@ -156,6 +156,10 @@ export function QuizSettingsForm() {
                 onChange={(e) => updateSettings({ title: e.target.value })}
               />
             </div>
+            <p className="mt-4 text-xs text-muted-foreground px-2">
+              Mẹo: Chọn chế độ <code>{'"EXTRACT"'}</code> nếu tài liệu đã có câu hỏi;
+              chọn chế độ <code>{'"GENERATE"'}</code> để AI tự tạo từ nội dung.
+            </p>
           </div>
         </CardContent>
       </Card>

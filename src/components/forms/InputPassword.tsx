@@ -3,13 +3,9 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState, forwardRef } from "react";
 import { Input } from "../ui/input";
 
-interface InputPasswordProps {
+interface InputPasswordProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {
   id?: string;
-  placeholder?: string;
-  className?: string;
-  name?: string;
-  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export const InputPassword = forwardRef<HTMLInputElement, InputPasswordProps>(

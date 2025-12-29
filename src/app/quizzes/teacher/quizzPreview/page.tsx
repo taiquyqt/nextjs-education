@@ -64,13 +64,6 @@ export default function QuizEditPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              className="border-green-500/30 text-green-700 hover:bg-green-50"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Lưu tất cả
-            </Button>
-            <Button
               onClick={onApprove}
               className="bg-green-500 text-white hover:bg-green-600"
             >

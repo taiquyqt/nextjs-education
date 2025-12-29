@@ -39,9 +39,9 @@ export function QuizUploadGuide() {
 
           <div className="bg-gray-100 p-4 rounded border">
             <Image
-              src="/images/imageGuideFile.png"
+              src="/images/guide.png"
               alt="Ví dụ định dạng câu hỏi"
-              width={600}
+              width={430}
               height={300}
               className="rounded shadow"
             />

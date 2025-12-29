@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Save, Edit3, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Save, Edit3, Plus, Loader2 } from "lucide-react"; // Added Loader2
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -21,6 +21,15 @@ import {
 } from "../../hook/quiz-hooks";
 import { toast } from "react-toastify";
 
+// --- ADDED: Helper to format ISO date for input ---
+const formatDateForInput = (isoString?: string) => {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 16);
+};
+
 export default function QuizEditPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,7 +46,13 @@ export default function QuizEditPage() {
   // Set quiz data to storage when fetched in edit mode
   useEffect(() => {
     if (mode === "edit" && quizData) {
-      setData(quizData);
+      setData({
+          ...quizData,
+          // --- ADDED: Format dates for inputs ---
+          startDate: formatDateForInput(quizData.startDate),
+          endDate: formatDateForInput(quizData.endDate),
+
+      });
     }
   }, [mode, quizData, setData]);
 
@@ -61,6 +76,8 @@ export default function QuizEditPage() {
               timeLimit,
               description,
               questions,
+              startDate, // --- ADDED ---
+              endDate,   // --- ADDED ---
               ...rest
             } = data;
 
@@ -69,6 +86,9 @@ export default function QuizEditPage() {
               classId,
               timeLimit: Number(timeLimit),
               description,
+              // --- ADDED: Send dates ---
+              startDate: startDate ? new Date(startDate).toISOString() : undefined,
+              endDate: endDate ? new Date(endDate).toISOString() : undefined,
             });
 
             if (questions && questions.length > 0) {
@@ -121,22 +141,36 @@ export default function QuizEditPage() {
 
   async function onPrimaryAction() {
     const mutation = currentMutation;
-    const payload = mode === "edit" ? { ...quiz, id: quizId } : quiz;
+    
+    // --- ADDED: Prepare payload with dates for Create mode as well ---
+    let payload = mode === "edit" ? { ...quiz, id: quizId } : quiz;
+    
+    if (mode === 'create') {
+        payload = {
+            ...payload,
+            startDate: quiz.startDate ? new Date(quiz.startDate).toISOString() : undefined,
+            endDate: quiz.endDate ? new Date(quiz.endDate).toISOString() : undefined,
+        }
+    }
 
     mutation.mutate(payload, {
       onSuccess: (result) => {
         switch (mode) {
           case "edit":
-            toast("Cập nhật quiz thành công");
+            toast.success("Cập nhật quiz thành công"); // Changed to success for better UI
             break;
           case "create":
-            toast("Tạo quiz thành công");
+            toast.success("Tạo quiz thành công");
             break;
           default:
-            toast("Duyệt quiz thành công");
+            toast.success("Duyệt quiz thành công");
         }
-        // useQuizzStorage.getState().reset();
-        router.push("/quizzes/teacher");
+        
+        // --- ADDED Logic: Stay on page if Edit, leave if Create ---
+        if (mode === "create") {
+             // useQuizzStorage.getState().reset();
+             router.push("/quizzes/teacher");
+        }
       },
       onError: (error) => {
         switch (mode) {
@@ -260,6 +294,16 @@ export default function QuizEditPage() {
     }
   }, [mode]);
 
+  // Loading state for Edit mode
+  if (mode === "edit" && isLoading) {
+      return (
+        <div className="flex h-dvh items-center justify-center bg-white">
+            <Loader2 className="animate-spin mr-2 h-8 w-8 text-blue-600"/> 
+            <span className="text-slate-600">Đang tải dữ liệu...</span>
+        </div>
+      );
+  }
+
   return (
     <main className="min-h-dvh bg-white">
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
@@ -288,8 +332,9 @@ export default function QuizEditPage() {
             <Button
               onClick={onPrimaryAction}
               className={primaryButtonConfig.className}
+              disabled={currentMutation.isPending} // Added disabled state
             >
-              <primaryButtonConfig.icon className="mr-2 h-4 w-4" />
+              {currentMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <primaryButtonConfig.icon className="mr-2 h-4 w-4" />}
               {primaryButtonConfig.text}
             </Button>
           </div>
@@ -322,6 +367,28 @@ export default function QuizEditPage() {
                     className={`${inputColorClass} mt-2`}
                     disabled={mode === "edit"} // Disable class ID editing in edit mode
                   />
+                </div>
+
+                {/* --- ADDED: Start/End Date Inputs --- */}
+                <div className="space-y-3 pt-2">
+                    <div>
+                        <Label>Ngày bắt đầu</Label>
+                        <Input 
+                            type="datetime-local"
+                            value={quiz?.startDate || ""} 
+                            onChange={(e) => setData({ startDate: e.target.value })} 
+                            className={`${inputColorClass} mt-2 text-sm`}
+                        />
+                    </div>
+                    <div>
+                        <Label>Ngày kết thúc</Label>
+                        <Input 
+                            type="datetime-local"
+                            value={quiz?.endDate || ""} 
+                            onChange={(e) => setData({ endDate: e.target.value })} 
+                            className={`${inputColorClass} mt-2 text-sm`}
+                        />
+                    </div>
                 </div>
 
                 <div>
