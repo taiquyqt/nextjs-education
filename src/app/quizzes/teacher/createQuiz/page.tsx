@@ -93,7 +93,7 @@ export default function CreateQuizzPage() {
     title: "",
     startDate: getCurrentDateTimeLocal(), // Lấy giờ hiện tại đúng format
     endDate: getCurrentDateTimeLocal(),   // Lấy giờ hiện tại đúng format
-    timeLimit: "40",
+    timeLimit: "45",
     description: "",
     files: [],
     classId: 0,

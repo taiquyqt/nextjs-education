@@ -73,7 +73,7 @@ export function QuizResultDialog({
           } as React.CSSProperties
         }
       >
-        <DialogHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 ">
+        <DialogHeader className="bg-linear-to-r from-green-600 to-green-700 text-white p-4 ">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-full">
               <CheckCircle className="h-6 w-6" />

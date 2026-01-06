@@ -9,6 +9,7 @@ export type Quiz = {
 };
 
 export type Question = {
+    id?: number;
     questionText: string;
     questionType: string
     options: Option[];

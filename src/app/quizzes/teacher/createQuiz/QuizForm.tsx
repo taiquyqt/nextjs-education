@@ -15,9 +15,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import type { QuizFormDataExtended } from "./page"; // Đảm bảo đường dẫn import đúng
-import { QuizUploadGuide } from "@/app/quizzes/components/QuizUploadGuide"; // Đảm bảo đường dẫn đúng
-import { toast } from "sonner"; // Thêm toast để báo lỗi rõ ràng
+import type { QuizFormDataExtended } from "./page";
+import { QuizUploadGuide } from "@/app/quizzes/components/QuizUploadGuide";
+import { toast } from "sonner";
 
 interface QuizFormProps {
   defaultValues: QuizFormDataExtended;
@@ -46,55 +46,76 @@ export function QuizFormm({
     setValue,
     control,
     watch,
-    trigger, // Dùng để kích hoạt validate thủ công
+    trigger,
     formState: { errors },
   } = useForm<QuizFormDataExtended>({
     defaultValues,
     resolver: yupResolver(schema),
-    mode: "onChange", // Validate ngay khi người dùng nhập liệu
+    mode: "onChange",
   });
 
   const watchedFields = watch();
+  
+  // --- LOGIC MỚI: TỰ ĐỘNG TÍNH NGÀY KẾT THÚC ---
+  // 1. Theo dõi giá trị của ngày bắt đầu và thời lượng
+  const watchedStartDate = watch("startDate");
+  const watchedTimeLimit = watch("timeLimit");
 
-  // Hàm debug lỗi: Sẽ chạy khi form submit thất bại
+  // Hàm helper để chuyển Date sang string 'YYYY-MM-DDTHH:mm' (Local time)
+  const toLocalISOString = (date: Date) => {
+    const tzOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+    const localISOTime = new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+    return localISOTime;
+  };
+
+  useEffect(() => {
+    // Chỉ chạy khi có cả ngày bắt đầu và thời lượng hợp lệ
+    if (watchedStartDate && watchedTimeLimit) {
+      const start = new Date(watchedStartDate);
+      const minutes = Number(watchedTimeLimit);
+
+      if (!isNaN(start.getTime()) && !isNaN(minutes) && minutes > 0) {
+        // Tính toán: Thời gian mới = Thời gian cũ + số phút * 60000 (ms)
+        const endTime = new Date(start.getTime() + minutes * 60000);
+        
+        // Format lại thành chuỗi cho input datetime-local
+        const endTimeString = toLocalISOString(endTime);
+
+        // Cập nhật giá trị vào form
+        setValue("endDate", endTimeString);
+      }
+    }
+  }, [watchedStartDate, watchedTimeLimit, setValue]);
+  // --------------------------------------------------
+
   const onError = (errors: any) => {
     console.log("❌ FORM VALIDATION FAILED:", errors);
-    
-    // Hiển thị lỗi cụ thể ra toast để bạn dễ thấy
     if (errors.files) {
-        toast.error(`Lỗi File: ${errors.files.message}`);
+      toast.error(`Lỗi File: ${errors.files.message}`);
     } else if (errors.classId) {
-        toast.error("Vui lòng chọn lớp học!");
+      toast.error("Vui lòng chọn lớp học!");
     } else {
-        toast.error("Vui lòng kiểm tra lại các trường thông tin màu đỏ!");
+      toast.error("Vui lòng kiểm tra lại các trường thông tin màu đỏ!");
     }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    
-    // Cập nhật state hiển thị
     setSelectedFiles(selected);
-    
-    // Cập nhật value cho React Hook Form VÀ kích hoạt validate ngay lập tức
     setValue("files", selected, { shouldValidate: true, shouldDirty: true });
-    
-    // Debug log xem file đã vào chưa
-    console.log("📂 Files selected:", selected);
   };
 
   return (
-    // THÊM onError vào tham số thứ 2 của handleSubmit
     <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-4">
-      
       {/* --- TIÊU ĐỀ --- */}
       <div className="space-y-1">
-        <Label htmlFor="title">Tiêu đề <span className="text-red-500">*</span></Label>
+        <Label htmlFor="title">
+          Tiêu đề <span className="text-red-500">*</span>
+        </Label>
         <Input
           id="title"
           placeholder="Nhập tiêu đề đề thi"
           {...register("title")}
-          // Bỏ value controlled để tránh conflict, dùng defaultValue nếu cần
           disabled={isLoading}
         />
         {errors.title && (
@@ -105,7 +126,9 @@ export function QuizFormm({
       {/* --- KHỐI LỚP & MÔN HỌC --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label htmlFor="classId">Khối lớp <span className="text-red-500">*</span></Label>
+          <Label htmlFor="classId">
+            Khối lớp <span className="text-red-500">*</span>
+          </Label>
           <Controller
             control={control}
             name="classId"
@@ -115,8 +138,6 @@ export function QuizFormm({
                 onValueChange={(val) => {
                   const numVal = Number(val);
                   field.onChange(numVal);
-                  
-                  // Tự động điền môn học
                   const selectedClass = classOptions.find((c) => c.id === numVal);
                   if (selectedClass) {
                     setValue("subject", selectedClass.subject.name);
@@ -152,6 +173,24 @@ export function QuizFormm({
         </div>
       </div>
 
+      {/* --- THỜI LƯỢNG (Đưa lên trước để UX tốt hơn khi chỉnh ngày) --- */}
+      <div className="space-y-1">
+        <Label htmlFor="timeLimit">
+          Thời lượng (phút) <span className="text-red-500">*</span>
+        </Label>
+        <Input
+          id="timeLimit"
+          type="number"
+          placeholder="VD: 45"
+          min={1}
+          {...register("timeLimit")}
+          disabled={isLoading}
+        />
+        {errors.timeLimit && (
+          <p className="text-red-500 text-sm mt-1">{errors.timeLimit.message}</p>
+        )}
+      </div>
+
       {/* --- NGÀY GIỜ --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
@@ -169,25 +208,11 @@ export function QuizFormm({
             id="endDate"
             type="datetime-local"
             {...register("endDate")}
+            // Có thể để disabled nếu muốn bắt buộc theo công thức, hoặc để mở để sửa thủ công
+            // disabled={true} 
             disabled={isLoading}
           />
         </div>
-      </div>
-
-      {/* --- THỜI LƯỢNG --- */}
-      <div className="space-y-1">
-        <Label htmlFor="timeLimit">Thời lượng (phút) <span className="text-red-500">*</span></Label>
-        <Input
-          id="timeLimit"
-          type="number"
-          placeholder="VD: 40"
-          min={1}
-          {...register("timeLimit")}
-          disabled={isLoading}
-        />
-        {errors.timeLimit && (
-             <p className="text-red-500 text-sm mt-1">{errors.timeLimit.message}</p>
-        )}
       </div>
 
       {/* --- MÔ TẢ --- */}
@@ -201,11 +226,13 @@ export function QuizFormm({
         />
       </div>
 
-      {/* --- FILE UPLOAD (QUAN TRỌNG NHẤT) --- */}
+      {/* --- FILE UPLOAD --- */}
       <div className="space-y-2 border p-4 rounded-lg bg-slate-50">
-        <Label htmlFor="files" className="font-semibold">Tệp PDF <span className="text-red-500">*</span></Label>
+        <Label htmlFor="files" className="font-semibold">
+          Tệp PDF <span className="text-red-500">*</span>
+        </Label>
         <QuizUploadGuide />
-        
+
         <Input
           id="files"
           type="file"
@@ -215,22 +242,26 @@ export function QuizFormm({
           disabled={isLoading}
           className="bg-white"
         />
-        
-        {/* Hiển thị lỗi FILE ở đây */}
+
         {errors.files && (
-          <p className="text-red-500 text-sm font-medium"> {errors.files.message as string}</p>
+          <p className="text-red-500 text-sm font-medium">
+            {errors.files.message as string}
+          </p>
         )}
 
         {selectedFiles.length > 0 && (
           <div className="mt-2">
-             <p className="text-sm font-medium text-slate-700">File đã chọn:</p>
-             <ul className="text-sm text-green-600 mt-1 space-y-1">
-                {selectedFiles.map((file, idx) => (
-                  <li key={idx} className="flex items-center">
-                    {file.name} <span className="text-xs text-gray-400 ml-2">({(file.size / 1024).toFixed(1)} KB)</span>
-                  </li>
-                ))}
-             </ul>
+            <p className="text-sm font-medium text-slate-700">File đã chọn:</p>
+            <ul className="text-sm text-green-600 mt-1 space-y-1">
+              {selectedFiles.map((file, idx) => (
+                <li key={idx} className="flex items-center">
+                  {file.name}{" "}
+                  <span className="text-xs text-gray-400 ml-2">
+                    ({(file.size / 1024).toFixed(1)} KB)
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

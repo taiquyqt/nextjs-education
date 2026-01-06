@@ -10,21 +10,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useRouter } from "next/navigation";
+
+interface ConfirmLeaveDialogProps {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void; // Thêm prop này để xử lý từ bên ngoài
+}
 
 export function ConfirmLeaveDialog({
   open = false,
-  onCancel = () => {},
-}: {
-  open?: boolean;
-  onCancel?: () => void;
-}) {
-  const router = useRouter();
-
-  function handleConfirm() {
-    router.back(); // quay lại trang trước
-  }
-
+  onCancel,
+  onConfirm,
+}: ConfirmLeaveDialogProps) {
   return (
     <AlertDialog open={open}>
       <AlertDialogContent>
@@ -38,7 +35,7 @@ export function ConfirmLeaveDialog({
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Ở lại</AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleConfirm}
+            onClick={onConfirm} // Gọi hàm onConfirm được truyền vào
             className="bg-red-600 hover:bg-red-700"
           >
             Rời trang

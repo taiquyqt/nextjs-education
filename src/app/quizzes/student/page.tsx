@@ -14,7 +14,7 @@ import {
 import { Button as ButtonUI } from "@/components/ui/button";
 import { Badge as BadgeUI } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Users, Play, Eye, Ban, CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { Clock, Play, Eye, Ban, CheckCircle2, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type StudentQuiz = {
@@ -31,8 +31,32 @@ type StudentQuiz = {
   score?: number | null;
 };
 
-// Định nghĩa 3 trạng thái Tab riêng biệt
+// Keep tab types as is
 type TabType = "available" | "submitted" | "closed";
+
+// --- HELPER 1: ADD 7 HOURS TO FIX BACKEND OFFSET ---
+const addMissingHours = (dateStr: string | null | undefined): string | null => {
+    if (!dateStr) return null;
+    try {
+        const date = new Date(dateStr);
+        // Add 7 hours (7 * 60 * 60 * 1000 ms)
+        date.setTime(date.getTime() + (7 * 60 * 60 * 1000));
+        return date.toISOString();
+    } catch (e) {
+        return dateStr;
+    }
+};
+
+// --- HELPER 2: PARSE UTC (FOR DISPLAY) ---
+const parseUtcDate = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr) return null;
+  let safeStr = dateStr;
+  if (safeStr.includes("T") && !safeStr.endsWith("Z") && !safeStr.includes("+")) {
+      safeStr += "Z";
+  }
+  const date = new Date(safeStr);
+  return isNaN(date.getTime()) ? null : date;
+};
 
 export default function StudentQuizzesPage() {
   const [user, setUser] = useState<any>(null);
@@ -55,7 +79,18 @@ export default function StudentQuizzesPage() {
         });
         if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
         const payload = await res.json();
-        setQuizzes(payload.data || []);
+        
+        // --- FIX DATA HERE ---
+        const rawData = payload.data || [];
+        
+        // Map through each quiz to fix the time (Add 7 hours)
+        const fixedData = rawData.map((quiz: StudentQuiz) => ({
+            ...quiz,
+            startDate: addMissingHours(quiz.startDate),
+            endDate: addMissingHours(quiz.endDate)
+        }));
+
+        setQuizzes(fixedData);
       } catch (e) {
         console.error("Error fetching quizzes:", e);
       }
@@ -63,9 +98,8 @@ export default function StudentQuizzesPage() {
     fetchQuizzes();
   }, []);
 
-  // --- LOGIC PHÂN LOẠI MỚI (RÕ RÀNG HƠN) ---
+  // --- LOGIC (UNCHANGED) ---
   const quizzesByClassAndTab = useMemo(() => {
-    // Cấu trúc dữ liệu: { "Lớp A": { available: [], submitted: [], closed: [] } }
     const grouped: { [className: string]: { [key in TabType]: StudentQuiz[] } } = {};
     const counts = { available: 0, submitted: 0, closed: 0 };
     const now = new Date();
@@ -73,25 +107,34 @@ export default function StudentQuizzesPage() {
     (quizzes || []).forEach((quiz) => {
       const className = quiz.className || "Lớp khác";
 
-      // Khởi tạo object cho lớp nếu chưa có
       if (!grouped[className]) {
         grouped[className] = { available: [], submitted: [], closed: [] };
       }
 
-      const endDate = quiz.endDate ? new Date(quiz.endDate) : null;
-      const isExpired = endDate ? endDate < now : false;
+      // Parse dates (already added +7h above)
+      const startDate = parseUtcDate(quiz.startDate);
+      const endDate = parseUtcDate(quiz.endDate);
 
-      // --- PHÂN LOẠI ---
+      // --- CLASSIFICATION ---
       if (quiz.submitted) {
-        // 1. Ưu tiên cao nhất: ĐÃ NỘP (Dù hết hạn hay chưa)
         grouped[className].submitted.push(quiz);
         counts.submitted++;
-      } else if (isExpired) {
-        // 2. Chưa nộp + Hết hạn => ĐÃ ĐÓNG (Bỏ thi)
+        return; 
+      }
+
+      if (!startDate || !endDate) {
+         grouped[className].closed.push(quiz);
+         counts.closed++;
+         return;
+      }
+      
+      // Check expiration using the fixed dates
+      const isExpired = endDate < now;
+
+      if (isExpired) {
         grouped[className].closed.push(quiz);
         counts.closed++;
       } else {
-        // 3. Chưa nộp + Còn hạn => CÓ THỂ LÀM
         grouped[className].available.push(quiz);
         counts.available++;
       }
@@ -101,26 +144,26 @@ export default function StudentQuizzesPage() {
   }, [quizzes]);
 
 
-  // --- FORMAT NGÀY GIỜ ---
+  // --- FORMAT DISPLAY ---
   const formatDateTime = (dateString?: string | null) => {
-    if (!dateString) return "Không giới hạn";
-    return new Date(dateString).toLocaleString("vi-VN", {
+    const date = parseUtcDate(dateString);
+    if (!date) return "Không giới hạn";
+    return date.toLocaleString("vi-VN", {
       hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric",
     });
   };
 
-  // --- RENDER CARD (GIAO DIỆN) ---
+  // --- RENDER CARD (UNCHANGED) ---
   const renderQuizCards = (list: StudentQuiz[], currentTab: TabType) => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {list.map((quiz) => {
-
           return (
             <CardUI key={quiz.id} className="flex flex-col h-full hover:shadow-md transition-shadow border-t-4 border-t-transparent overflow-hidden"
-              // Thêm màu border-top để phân biệt nhanh
               style={{
-                borderTopColor: currentTab === 'available' ? '#3b82f6' :
-                  currentTab === 'submitted' ? '#22c55e' : '#9ca3af'
+                borderTopColor: 
+                  currentTab === 'available' ? '#3b82f6' : 
+                  currentTab === 'submitted' ? '#22c55e' : '#9ca3af' 
               }}
             >
               <CardHeader className="pb-2">
@@ -129,7 +172,7 @@ export default function StudentQuizzesPage() {
                     {quiz.subject || "Tổng hợp"}
                   </BadgeUI>
 
-                  {/* BADGE TRẠNG THÁI RIÊNG BIỆT */}
+                  {/* BADGE */}
                   {currentTab === 'available' && (
                     <BadgeUI className="bg-blue-100 text-blue-700">
                       <Clock className="w-3 h-3 mr-1" /> Đang mở
@@ -147,7 +190,7 @@ export default function StudentQuizzesPage() {
                   )}
                 </div>
 
-                <CardTitle className="text-lg font-bold text-gray-900 line-clamp-2 min-h-[3.5rem] leading-tight">
+                <CardTitle className="text-lg font-bold text-gray-900 line-clamp-2 min-h-14 leading-tight">
                   {quiz.title}
                 </CardTitle>
                 <CardDescription>Lớp {quiz.className}</CardDescription>
@@ -166,15 +209,13 @@ export default function StudentQuizzesPage() {
                 </div>
 
                 <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                  {currentTab === 'available' ? `Hết hạn: ${formatDateTime(quiz.endDate)}` :
+                   {currentTab === 'available' ? `Hết hạn: ${formatDateTime(quiz.endDate)}` :
                     currentTab === 'submitted' ? `Đã nộp bài` :
                       `Đã hết hạn vào: ${formatDateTime(quiz.endDate)}`}
                 </div>
               </CardContent>
 
               <CardFooter className="pt-2">
-                {/* NÚT BẤM TÙY THEO TAB */}
-
                 {currentTab === 'available' && (
                   <ButtonUI className="w-full bg-blue-600 " onClick={() => router.push(`student/${quiz.id}`)}>
                     <Play className="h-4 w-4 mr-2" /> Bắt đầu làm bài
@@ -223,7 +264,6 @@ export default function StudentQuizzesPage() {
             </div>
           </div>
 
-          {/* --- TABS CHÍNH */}
           <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as TabType)}
@@ -231,19 +271,16 @@ export default function StudentQuizzesPage() {
           >
             <TabsList className="grid w-full grid-cols-3">
 
-              {/* TAB 1: CÓ THỂ LÀM */}
               <TabsTrigger value="available" className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${counts.available > 0 ? 'bg-blue-500' : 'bg-gray-400'}`}></span>
                 Có thể làm ({counts.available})
               </TabsTrigger>
 
-              {/* TAB 2: ĐÃ NỘP */}
               <TabsTrigger value="submitted" className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${counts.submitted > 0 ? 'bg-green-500' : 'bg-gray-400'}`}></span>
                 Đã làm ({counts.submitted})
               </TabsTrigger>
 
-              {/* TAB 3: ĐÃ ĐÓNG */}
               <TabsTrigger value="closed" className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${counts.closed > 0 ? 'bg-red-500' : 'bg-gray-400'}`}></span>
                 Đã đóng ({counts.closed})
@@ -251,11 +288,9 @@ export default function StudentQuizzesPage() {
 
             </TabsList>
 
-            {/* CONTENT */}
             {(["available", "submitted", "closed"] as TabType[]).map((tab) => (
               <TabsContent key={tab} value={tab} className="mt-2"> 
 
-                {/* Check rỗng */}
                 {Object.keys(grouped).every(cls => grouped[cls][tab].length === 0) && (
                   <CardUI>
                     <CardContent className="p-8 text-center">
@@ -269,22 +304,18 @@ export default function StudentQuizzesPage() {
                   </CardUI>
                 )}
 
-                {/* Loop qua các lớp */}
                 {Object.entries(grouped).map(([className, tabsData]) => {
                   const quizzesInTab = tabsData[tab];
                   if (quizzesInTab.length === 0) return null;
 
                   return (
                     <div key={className} className="space-y-4">
-                      {/* Header lớp học */}
                       <div className="flex items-center gap-3 mt-6 mb-4">
                         <h2 className="text-2xl font-semibold text-gray-800">Lớp {className}</h2>
                         <BadgeUI variant="outline" className="text-sm">
                           {quizzesInTab.length} bài kiểm tra
                         </BadgeUI>
                       </div>
-
-                      {/* Danh sách thẻ bài thi */}
                       {renderQuizCards(quizzesInTab, tab)}
                     </div>
                   );
