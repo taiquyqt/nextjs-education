@@ -14,6 +14,37 @@ import { useQuizzStorage } from "@/lib/store/useQuizzStorage";
 import { useRouter } from "next/navigation";
 import { useApproveQuiz } from "../../hook/quiz-hooks";
 
+// --- 1. KHAI BÁO HÀM HELPER Ở ĐÂY (TRƯỚC COMPONENT CHÍNH) ---
+const formatDateForInput = (val?: string | Date | null) => {
+  if (!val) return "";
+  
+  // Trường hợp là Date Object
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return "";
+    const offset = val.getTimezoneOffset();
+    const localDate = new Date(val.getTime() - offset * 60 * 1000);
+    return localDate.toISOString().slice(0, 16);
+  }
+
+  // Trường hợp là String
+  if (typeof val === "string") {
+    // Nếu không có 'Z' (đã là local format hoặc user đang nhập) -> Giữ nguyên
+    if (!val.endsWith("Z")) return val;
+    
+    // Nếu có 'Z' (ISO từ server) -> Convert sang local
+    try {
+      const date = new Date(val);
+      const offset = date.getTimezoneOffset();
+      const localDate = new Date(date.getTime() - offset * 60 * 1000);
+      return localDate.toISOString().slice(0, 16);
+    } catch (e) {
+      return "";
+    }
+  }
+  return "";
+};
+
+// --- COMPONENT CHÍNH ---
 export default function QuizEditPage() {
   const router = useRouter();
   const { data: quiz, setData, reset } = useQuizzStorage();
@@ -22,7 +53,7 @@ export default function QuizEditPage() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const title = useMemo(() => {
-    const n = quiz?.questions.length ?? 0;
+    const n = quiz?.questions?.length ?? 0;
     return `Chỉnh sửa quiz (${n} câu hỏi)`;
   }, [quiz]);
 
@@ -42,6 +73,7 @@ export default function QuizEditPage() {
       },
     });
   }
+
   return (
     <main className="min-h-dvh bg-white">
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
@@ -64,15 +96,9 @@ export default function QuizEditPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              className="border-green-500/30 text-green-700 hover:bg-green-50"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Lưu tất cả
-            </Button>
-            <Button
               onClick={onApprove}
               className="bg-green-500 text-white hover:bg-green-600"
+              disabled={approveMutation.isPending}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               {approveMutation.isPending ? "Đang gửi..." : "Duyệt quiz"}
@@ -89,45 +115,71 @@ export default function QuizEditPage() {
                 <CardTitle className="text-green-700">Thông tin quiz</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {/* Tiêu đề */}
                 <div>
                   <Label>Tiêu đề</Label>
                   <Input
-                    value={quiz.title}
+                    value={quiz.title ?? ""}
                     onChange={(e) => setData({ title: e.target.value })}
-                    className="border-green-500/30 focus:ring-green-500"
+                    className="border-green-500/30 focus:ring-green-500 mt-2"
                   />
                 </div>
+
+                {/* --- INPUT NGÀY BẮT ĐẦU & KẾT THÚC --- */}
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <Label>Ngày bắt đầu</Label>
+                    <Input
+                      type="datetime-local"
+                      // Gọi hàm helper ở đây sẽ không bị lỗi nữa
+                      value={formatDateForInput(quiz.startDate)}
+                      onChange={(e) => setData({ startDate: e.target.value })}
+                      className="border-green-500/30 mt-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label>Ngày kết thúc</Label>
+                    <Input
+                      type="datetime-local"
+                      // Gọi hàm helper ở đây sẽ không bị lỗi nữa
+                      value={formatDateForInput(quiz.endDate)}
+                      onChange={(e) => setData({ endDate: e.target.value })}
+                      className="border-green-500/30 mt-2 text-sm"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <Label>Lớp</Label>
                   <Input
-                    value={quiz.className}
-                    onChange={(e) => setData({ grade: e.target.value })}
-                    className="border-green-500/30"
+                    value={quiz.className ?? ""}
+                    onChange={(e) => setData({ className: e.target.value })}
+                    className="border-green-500/30 mt-2"
                   />
                 </div>
                 <div>
                   <Label>Môn học</Label>
                   <Input
-                    value={quiz.subject}
+                    value={quiz.subject ?? ""}
                     onChange={(e) => setData({ subject: e.target.value })}
-                    className="border-green-500/30"
+                    className="border-green-500/30 mt-2"
                   />
                 </div>
                 <div>
                   <Label>Thời gian làm (phút)</Label>
                   <Input
                     type="number"
-                    value={quiz.timeLimit}
-                    onChange={(e) => setData({ time: e.target.value })}
-                    className="border-green-500/30"
+                    value={quiz.timeLimit ?? ""}
+                    onChange={(e) => setData({ timeLimit: e.target.value })}
+                    className="border-green-500/30 mt-2"
                   />
                 </div>
                 <div>
                   <Label>Mô tả</Label>
                   <Textarea
-                    value={quiz.description}
+                    value={quiz.description ?? ""}
                     onChange={(e) => setData({ description: e.target.value })}
-                    className="border-green-500/30"
+                    className="border-green-500/30 mt-2"
                     rows={4}
                   />
                 </div>

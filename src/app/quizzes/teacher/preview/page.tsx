@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Save, Edit3, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Save, Edit3, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -18,8 +18,33 @@ import {
   useCreateQuiz,
   useQuiz,
   useReplaceQuizContent,
-} from "../../hook/quiz-hooks";
-import { toast } from "react-toastify";
+} from "../../hook/quiz-hooks"; 
+import { toast } from "react-toastify"; 
+const formatDateForInput = (val?: string | Date | null) => {
+  if (!val) return "";
+
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return ""; 
+    const offset = val.getTimezoneOffset();
+    const localDate = new Date(val.getTime() - offset * 60 * 1000);
+    return localDate.toISOString().slice(0, 16);
+  }
+
+  if (typeof val === "string") {
+    if (!val.endsWith("Z")) return val;
+
+    try {
+      const date = new Date(val);
+      const offset = date.getTimezoneOffset();
+      const localDate = new Date(date.getTime() - offset * 60 * 1000);
+      return localDate.toISOString().slice(0, 16);
+    } catch (e) {
+      return "";
+    }
+  }
+
+  return "";
+};
 
 export default function QuizEditPage() {
   const router = useRouter();
@@ -37,7 +62,12 @@ export default function QuizEditPage() {
   // Set quiz data to storage when fetched in edit mode
   useEffect(() => {
     if (mode === "edit" && quizData) {
-      setData(quizData);
+      setData({
+        ...quizData,
+        // Format date khi load từ API về
+        startDate: formatDateForInput(quizData.startDate),
+        endDate: formatDateForInput(quizData.endDate),
+      });
     }
   }, [mode, quizData, setData]);
 
@@ -48,19 +78,19 @@ export default function QuizEditPage() {
 
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Determine which mutation to use based on mode
   const currentMutation = useMemo(() => {
     switch (mode) {
       case "edit":
         return {
           mutate: async (data: any) => {
-            // Split data into meta and content
             const {
               title,
               classId,
               timeLimit,
               description,
               questions,
+              startDate,
+              endDate,
               ...rest
             } = data;
 
@@ -69,6 +99,8 @@ export default function QuizEditPage() {
               classId,
               timeLimit: Number(timeLimit),
               description,
+              startDate: startDate ? new Date(startDate).toISOString() : undefined,
+              endDate: endDate ? new Date(endDate).toISOString() : undefined,
             });
 
             if (questions && questions.length > 0) {
@@ -121,37 +153,40 @@ export default function QuizEditPage() {
 
   async function onPrimaryAction() {
     const mutation = currentMutation;
-    const payload = mode === "edit" ? { ...quiz, id: quizId } : quiz;
+
+    // Prepare payload
+    let payload = mode === "edit" ? { ...quiz, id: quizId } : quiz;
+
+    // Đảm bảo convert sang ISO string (có Z) trước khi gửi đi
+    if (mode === "create") {
+      payload = {
+        ...payload,
+        startDate: quiz.startDate ? new Date(quiz.startDate).toISOString() : undefined,
+        endDate: quiz.endDate ? new Date(quiz.endDate).toISOString() : undefined,
+      };
+    }
 
     mutation.mutate(payload, {
       onSuccess: (result) => {
         switch (mode) {
           case "edit":
-            toast("Cập nhật quiz thành công");
+            toast.success("Cập nhật quiz thành công");
             break;
           case "create":
-            toast("Tạo quiz thành công");
+            toast.success("Tạo quiz thành công");
             break;
           default:
-            toast("Duyệt quiz thành công");
+            toast.success("Duyệt quiz thành công");
         }
-        // useQuizzStorage.getState().reset();
-        router.push("/quizzes/teacher");
+
+        if (mode === "create") {
+          // reset(); // Có thể uncomment nếu muốn reset store
+          router.push("/quizzes/teacher");
+        }
       },
       onError: (error) => {
-        switch (mode) {
-          case "edit":
-            console.error("Cập nhật quiz thất bại:", error);
-            toast.error("Cập nhật quiz thất bại");
-            break;
-          case "create":
-            console.error("Tạo quiz thất bại:", error);
-            toast.error("Tạo quiz thất bại");
-            break;
-          default:
-            console.error("Gửi quiz thất bại:", error);
-            toast.error("Gửi quiz thất bại");
-        }
+        console.error("Lỗi:", error);
+        toast.error("Thao tác thất bại, vui lòng kiểm tra lại.");
       },
     });
   }
@@ -161,9 +196,7 @@ export default function QuizEditPage() {
       case "edit":
         return {
           icon: Edit3,
-          text: currentMutation.isPending
-            ? "Đang cập nhật..."
-            : "Cập nhật quiz",
+          text: currentMutation.isPending ? "Đang cập nhật..." : "Cập nhật quiz",
           className: "bg-blue-500 text-white hover:bg-blue-600",
         };
       case "create":
@@ -205,60 +238,39 @@ export default function QuizEditPage() {
   }, [mode]);
 
   const borderColorClass = useMemo(() => {
-    switch (mode) {
-      case "edit":
-        return "border-blue-500/20";
-      case "create":
-        return "border-green-500/20";
-      default:
-        return "border-green-500/20";
-    }
+    return mode === "edit" ? "border-blue-500/20" : "border-green-500/20";
   }, [mode]);
 
   const inputColorClass = useMemo(() => {
-    switch (mode) {
-      case "edit":
-        return "border-blue-500/30 focus:ring-blue-500";
-      case "create":
-        return "border-green-500/30 focus:ring-green-500";
-      default:
-        return "border-green-500/30 focus:ring-green-500";
-    }
+    return mode === "edit"
+      ? "border-blue-500/30 focus:ring-blue-500"
+      : "border-green-500/30 focus:ring-green-500";
   }, [mode]);
 
   const backButtonConfig = useMemo(() => {
-    switch (mode) {
-      case "edit":
-        return {
-          className: "text-blue-700 hover:bg-blue-50",
-        };
-      case "create":
-        return {
-          className: "text-green-700 hover:bg-green-50",
-        };
-      default:
-        return {
-          className: "text-green-700 hover:bg-green-50",
-        };
-    }
+    return {
+      className: mode === "edit" ? "text-blue-700 hover:bg-blue-50" : "text-green-700 hover:bg-green-50",
+    };
   }, [mode]);
 
   const saveButtonConfig = useMemo(() => {
-    switch (mode) {
-      case "edit":
-        return {
-          className: "border-blue-500/30 text-blue-700 hover:bg-blue-50",
-        };
-      case "create":
-        return {
-          className: "border-green-500/30 text-green-700 hover:bg-green-50",
-        };
-      default:
-        return {
-          className: "border-green-500/30 text-green-700 hover:bg-green-50",
-        };
-    }
+    return {
+      className:
+        mode === "edit"
+          ? "border-blue-500/30 text-blue-700 hover:bg-blue-50"
+          : "border-green-500/30 text-green-700 hover:bg-green-50",
+    };
   }, [mode]);
+
+  // Loading state for Edit mode
+  if (mode === "edit" && isLoading) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-white">
+        <Loader2 className="animate-spin mr-2 h-8 w-8 text-blue-600" />
+        <span className="text-slate-600">Đang tải dữ liệu...</span>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-dvh bg-white">
@@ -288,8 +300,13 @@ export default function QuizEditPage() {
             <Button
               onClick={onPrimaryAction}
               className={primaryButtonConfig.className}
+              disabled={currentMutation.isPending}
             >
-              <primaryButtonConfig.icon className="mr-2 h-4 w-4" />
+              {currentMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <primaryButtonConfig.icon className="mr-2 h-4 w-4" />
+              )}
               {primaryButtonConfig.text}
             </Button>
           </div>
@@ -320,8 +337,31 @@ export default function QuizEditPage() {
                     value={quiz?.classId || ""}
                     onChange={(e) => setData({ classId: e.target.value })}
                     className={`${inputColorClass} mt-2`}
-                    disabled={mode === "edit"} // Disable class ID editing in edit mode
+                    disabled={mode === "edit"}
                   />
+                </div>
+
+                {/* --- NGÀY GIỜ SỬ DỤNG HÀM FIXED --- */}
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <Label>Ngày bắt đầu</Label>
+                    <Input
+                      type="datetime-local"
+                      value={formatDateForInput(quiz?.startDate)}
+                      onChange={(e) => setData({ startDate: e.target.value })}
+                      className={`${inputColorClass} mt-2 text-sm`}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Ngày kết thúc</Label>
+                    <Input
+                      type="datetime-local"
+                      value={formatDateForInput(quiz?.endDate)}
+                      onChange={(e) => setData({ endDate: e.target.value })}
+                      className={`${inputColorClass} mt-2 text-sm`}
+                    />
+                  </div>
                 </div>
 
                 <div>

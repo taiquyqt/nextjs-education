@@ -254,11 +254,12 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="Nhập email của bạn"
+                autoComplete="email"
                 {...register("email")}
               />
               {errors.email && (
                 <p className="text-sm text-red-500">
-                  {errors.email.message as String}
+                  {errors.email.message as string}
                 </p>
               )}
             </div>
@@ -268,11 +269,12 @@ export default function LoginPage() {
               <InputPassword
                 id="password"
                 placeholder="Nhập mật khẩu"
+                autoComplete="current-password"
                 {...register("password")}
               />
               {errors.password && (
                 <p className="text-sm text-red-500">
-                  {errors.password.message as String}
+                  {errors.password.message as string}
                 </p>
               )}
             </div>
@@ -303,7 +305,7 @@ export default function LoginPage() {
               />
               {errors.email && (
                 <p className="text-sm text-red-500">
-                  {errors.email.message as String}
+                  {errors.email.message as string}
                 </p>
               )}
             </div>
@@ -324,7 +326,7 @@ export default function LoginPage() {
               />
               {errors.otp && (
                 <p className="text-sm text-red-500">
-                  {errors.otp.message as String}
+                  {errors.otp.message as string}
                 </p>
               )}
               <p className="text-sm text-gray-500">
@@ -346,7 +348,7 @@ export default function LoginPage() {
               />
               {errors.newPassword && (
                 <p className="text-sm text-red-500">
-                  {errors.newPassword.message as String}
+                  {errors.newPassword.message as string}
                 </p>
               )}
             </div>
@@ -360,7 +362,7 @@ export default function LoginPage() {
               />
               {errors.confirmPassword && (
                 <p className="text-sm text-red-500">
-                  {errors.confirmPassword.message as String}
+                  {errors.confirmPassword.message as string}
                 </p>
               )}
             </div>
@@ -478,11 +480,11 @@ export default function LoginPage() {
                   Đăng ký ngay
                 </Link>
               </div>
-
+            
               <div className="flex items-center gap-2 my-4">
-                <div className="flex-grow h-px bg-gray-300" />
+                <div className="flex grow h-px bg-gray-300" />
                 <span className="text-sm text-gray-500">hoặc</span>
-                <div className="flex-grow h-px bg-gray-300" />
+                <div className="flex grow h-px bg-gray-300" />
               </div>
 
               <GoogleLoginButton />

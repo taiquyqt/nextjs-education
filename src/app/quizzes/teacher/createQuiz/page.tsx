@@ -8,83 +8,69 @@ import {
   CardContent,
   CardDescription,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  UploadCloud,
-  FileText,
-  Edit,
-  LayoutGrid,
-  BookOpen,
-  FileEdit,
-} from "lucide-react";
+import { FileText, LayoutGrid, BookOpen, FileEdit } from "lucide-react";
 import { toast } from "sonner";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import { useQuizzStorage } from "../../../../lib/store/useQuizzStorage";
-import { useForm, Controller } from "react-hook-form";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { Question, QuizzFormData } from "@/types/quiz.type";
-import { QuizForm } from "@/components/forms/QuizForm";
+import { QuizFormm } from "./QuizForm";
 import { quizFormSchema } from "@/lib/validation/quizFormSchema";
 import { useTeacherClasses } from "../../hook/useTeacherClasses";
-import { QuizFormm } from "./QuizForm";
 import Navigation from "@/components/navigation";
+import { Question, QuizzFormData } from "@/types/quiz.type";
 
-interface QuizFormDataExtended extends QuizzFormData {
+export interface QuizFormDataExtended extends QuizzFormData {
   files: File[];
-  fileName: string;
+  fileName?: string;
   classId: number;
   createdBy: number;
+  subject?: string;
 }
-const token = localStorage.getItem("accessToken");
-// API response type
+
+// Hàm lấy API URL từ biến môi trường
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+// --- HÀM MỚI: Lấy ngày giờ hiện tại đúng định dạng YYYY-MM-DDThh:mm (Local Time) ---
+const getCurrentDateTimeLocal = () => {
+  const now = new Date();
+  // Điều chỉnh offset để lấy giờ địa phương thay vì giờ UTC
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  // Cắt bỏ phần giây và mili-giây, chỉ lấy YYYY-MM-DDThh:mm
+  return now.toISOString().slice(0, 16);
+};
 
 interface ApiResponse {
   questions: Question[];
+  message?: string;
 }
 
-// Function to call API and extract questions
-const extractQuestionsFromFiles = async (
-  files: File[]
-): Promise<Question[]> => {
+const extractQuestionsFromFiles = async (files: File[]): Promise<Question[]> => {
   const formData = new FormData();
+  files.forEach((file) => formData.append("file", file));
 
-  // Add all files to FormData
-  files.forEach((file) => {
-    formData.append("file", file);
-  });
-  // hoặc lấy từ context/store
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : "";
 
   try {
-    const response = await fetch(
-      "http://localhost:8080/api/files/extract-questions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      }
-    );
+    const response = await fetch(`${API_URL}/api/files/extract-questions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(result.message || result.error || `Lỗi server: ${response.status}`);
     }
 
-    const result: ApiResponse = await response.json();
-    console.log("result :", result);
+    if (!result.questions || !Array.isArray(result.questions)) {
+      throw new Error("Cấu trúc dữ liệu trả về từ Server không hợp lệ (thiếu field questions).");
+    }
 
     return result.questions;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error extracting questions:", error);
     throw error;
   }
@@ -95,31 +81,31 @@ export default function CreateQuizzPage() {
   const { setData } = useQuizzStorage();
   const [isLoading, setIsLoading] = useState(false);
 
-  const userStr =
-    typeof window !== "undefined" ? localStorage.getItem("user") : null;
-  const userId = userStr ? JSON.parse(userStr).userId : null;
+  const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+  const userId = userStr ? JSON.parse(userStr).userId : 0;
 
-  const { data: classes = [], isLoading: classesLoading } =
-    useTeacherClasses(userId);
+  const { data: classesResponse } = useTeacherClasses(userId);
 
+  const classes = Array.isArray(classesResponse) && classesResponse.length ? classesResponse : [];
+
+  // --- SỬA ĐOẠN NÀY: Dùng hàm getCurrentDateTimeLocal() ---
   const defaultValues: QuizFormDataExtended = {
     title: "",
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date().toISOString().split("T")[0],
-    timeLimit: "40",
+    startDate: getCurrentDateTimeLocal(), // Lấy giờ hiện tại đúng format
+    endDate: getCurrentDateTimeLocal(),   // Lấy giờ hiện tại đúng format
+    timeLimit: "45",
     description: "",
     files: [],
     classId: 0,
-    createdBy: userId ?? 0,
+    createdBy: userId,
     fileName: "",
     questions: [],
+    subject: "",
   };
 
   const onsubmit = async (data: QuizFormDataExtended) => {
-    console.log("Submit data:", data);
-
     if (!data.files || data.files.length === 0) {
-      toast.error("Vui lòng chọn ít nhất 1 file DOCX");
+      toast.error("Vui lòng chọn ít nhất 1 file PDF");
       return;
     }
 
@@ -129,7 +115,7 @@ export default function CreateQuizzPage() {
       const extractedQuestions = await extractQuestionsFromFiles(data.files);
 
       if (extractedQuestions.length === 0) {
-        toast.error("Không tìm thấy câu hỏi hợp lệ trong file.");
+        toast.warning("File đã được xử lý nhưng không tìm thấy câu hỏi nào. Vui lòng kiểm tra định dạng file.");
         return;
       }
 
@@ -141,17 +127,14 @@ export default function CreateQuizzPage() {
         createdBy: data.createdBy,
         timeLimit: data.timeLimit,
         description: data.description,
-        fileName: data.files.map((f) => f.name).join(", "),
+        fileName: data.files.map((f) => f.name).join(",") ?? "",
         questions: extractedQuestions,
       });
 
-      toast.success(
-        `Đã trích xuất thành công ${extractedQuestions.length} câu hỏi!`
-      );
+      toast.success(`Đã trích xuất thành công ${extractedQuestions.length} câu hỏi!`);
       router.push("/quizzes/teacher/preview?mode=create");
-    } catch (error) {
-      console.error("Error processing files:", error);
-      toast.error("Đã xảy ra lỗi khi xử lý file. Vui lòng thử lại.");
+    } catch (error: any) {
+      toast.error(error.message || "Đã xảy ra lỗi khi xử lý file. Vui lòng thử lại.");
     } finally {
       setIsLoading(false);
     }
@@ -174,22 +157,18 @@ export default function CreateQuizzPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card className="shadow">
-            <CardHeader className=" rounded-t-lg p-2">
+            <CardHeader className="rounded-t-lg p-2">
               <div className="flex items-center space-x-3">
                 <div className="p-4 bg-blue-100 rounded-lg">
-                  <FileEdit className=" text-blue-600" />
+                  <FileEdit className="text-blue-600" />
                 </div>
                 <div className="py-2">
-                  <CardTitle className="text-slate-800">
-                    Thông tin đề thi
-                  </CardTitle>
-                  <CardDescription>
-                    Nhập thông tin cơ bản cho đề thi mới
-                  </CardDescription>
+                  <CardTitle className="text-slate-800">Thông tin đề thi</CardTitle>
+                  <CardDescription>Nhập thông tin cơ bản cho đề thi mới</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className=" space-y-5">
+            <CardContent className="space-y-5">
               <QuizFormm
                 defaultValues={defaultValues}
                 schema={quizFormSchema}
@@ -200,75 +179,68 @@ export default function CreateQuizzPage() {
             </CardContent>
           </Card>
 
-          <div>
-            <div className="space-y-5">
-              <Card className="hover:shadow-lg transition-shadow border border-green-100">
-                <CardContent className=" flex gap-4 items-start">
-                  <div className="bg-green-100 p-3 rounded-lg mt-1">
-                    <BookOpen className="text-green-600 w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-base text-slate-800">
-                      Tạo đề bằng AI
-                    </h3>
-                    <p className="text-sm text-slate-600 mt-2">
-                      Sử dụng Ai để tạo đề dựa vào tài liệu
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="mt-3 text-green-600 border-green-300 hover:bg-green-50"
-                      onClick={handleAIGen}
-                    >
-                      Tạo đề
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Các tùy chọn khác giữ nguyên */}
+          <div className="space-y-5">
+            <Card className="hover:shadow-lg transition-shadow border border-green-100">
+              <CardContent className="flex gap-4 items-start">
+                <div className="bg-green-100 p-3 rounded-lg mt-1">
+                  <BookOpen className="text-green-600 w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-slate-800">Tạo đề bằng AI</h3>
+                  <p className="text-sm text-slate-600 mt-2">
+                    Sử dụng AI để tạo đề dựa vào tài liệu
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-3 text-green-600 border-green-300 hover:bg-green-50"
+                    onClick={handleAIGen}
+                  >
+                    Tạo đề
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="hover:shadow-lg transition-shadow border border-purple-100">
-                <CardContent className=" flex gap-4 items-start">
-                  <div className="bg-purple-100 p-3 rounded-lg mt-1">
-                    <LayoutGrid className="text-purple-600 w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-base text-slate-800">
-                      Tạo đề từ Ngân hàng đề
-                    </h3>
-                    <p className="text-sm text-slate-600 mt-2">
-                      Tự động sinh đề thi dựa trên ngân hàng đề
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="mt-3 text-purple-600 border-purple-300 hover:bg-purple-50"
-                    >
-                      Tạo đề
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+            <Card className="hover:shadow-lg transition-shadow border border-purple-100">
+              <CardContent className="flex gap-4 items-start">
+                <div className="bg-purple-100 p-3 rounded-lg mt-1">
+                  <LayoutGrid className="text-purple-600 w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-slate-800">Tạo đề từ Ngân hàng đề</h3>
+                  <p className="text-sm text-slate-600 mt-2">
+                    Tự động sinh đề thi dựa trên ngân hàng đề
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-3 text-purple-600 border-purple-300 hover:bg-purple-50"
+                  >
+                    Tạo đề
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="hover:shadow-lg transition-shadow border border-orange-100">
-                <CardContent className=" flex gap-4 items-start">
-                  <div className="bg-orange-100 p-3 rounded-lg mt-1">
-                    <FileText className="text-orange-600 w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-base text-slate-800">
-                      Tạo đề offline
-                    </h3>
-                    <p className="text-sm text-slate-600 mt-2">
-                      Upload đề thi giấy hoặc nhập thông tin từ file có sẵn
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="mt-3 text-orange-600 border-orange-300 hover:bg-orange-50"
-                    >
-                      Tải lên đề thi
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="hover:shadow-lg transition-shadow border border-orange-100">
+              <CardContent className="flex gap-4 items-start">
+                <div className="bg-orange-100 p-3 rounded-lg mt-1">
+                  <FileText className="text-orange-600 w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-slate-800">Tạo đề offline</h3>
+                  <p className="text-sm text-slate-600 mt-2">
+                    Upload đề thi giấy hoặc nhập thông tin từ file có sẵn
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-3 text-orange-600 border-orange-300 hover:bg-orange-50"
+                  >
+                    Tải lên đề thi
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

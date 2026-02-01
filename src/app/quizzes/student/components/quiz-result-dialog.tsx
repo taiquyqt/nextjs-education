@@ -1,8 +1,8 @@
 "use client";
 
 import type React from "react";
+import { useRouter } from "next/navigation"; // <--- 1. Import router
 
-import { useState } from "react";
 import {
   CheckCircle,
   Clock,
@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,6 +44,8 @@ export function QuizResultDialog({
   onOpenChange,
   data,
 }: QuizResultDialogProps) {
+  const router = useRouter(); // <--- 2. Khởi tạo router
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("vi-VN", {
       weekday: "long",
@@ -72,7 +73,7 @@ export function QuizResultDialog({
           } as React.CSSProperties
         }
       >
-        <DialogHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 ">
+        <DialogHeader className="bg-linear-to-r from-green-600 to-green-700 text-white p-4 ">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-full">
               <CheckCircle className="h-6 w-6" />
@@ -215,7 +216,10 @@ export function QuizResultDialog({
             </Button>
             <Button
               className="flex-1 bg-green-600 hover:bg-green-700"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                onOpenChange(false); // Đóng popup
+                router.push("/quizzes/student"); // <--- 3. Chuyển trang
+              }}
             >
               Đóng
             </Button>

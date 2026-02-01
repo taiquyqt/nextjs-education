@@ -27,21 +27,21 @@ export function QuizUploadGuide() {
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-lg">
-            Hướng dẫn định dạng file DOCX
+            Hướng dẫn định dạng file Pdf
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-gray-700">
-            Hệ thống chỉ chấp nhận file định dạng <strong>.docx</strong>. Nội
+            Hệ thống chỉ chấp nhận file định dạng <strong>.pdf</strong>. Nội
             dung phải theo mẫu như sau:
           </p>
 
           <div className="bg-gray-100 p-4 rounded border">
             <Image
-              src="/images/imageGuideFile.png"
+              src="/images/guide.png"
               alt="Ví dụ định dạng câu hỏi"
-              width={600}
+              width={430}
               height={300}
               className="rounded shadow"
             />
@@ -62,7 +62,7 @@ export function QuizUploadGuide() {
               <code>B.</code>, <code>C.</code>, <code>D.</code>
             </li>
             <li>
-              <strong>Dòng cuối</strong> phải có: <code>Đáp án: A</code> (viết
+              <strong>Dòng cuối</strong> phải có: <code>Đáp án: A-D</code> (viết
               hoa, không dấu chấm)
             </li>
             <li>Không được để nhiều câu hỏi trong cùng một đoạn văn</li>

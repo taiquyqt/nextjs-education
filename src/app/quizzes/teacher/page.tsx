@@ -215,7 +215,8 @@ export default function TeacherQuizzesPage() {
   // Render quiz cards cho một status cụ thể
   const renderQuizCards = (quizzes: QuizCard[]) => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      // Hiển thị 3 cards trên 1 hàng
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {quizzes.map((quiz: any) => (
           <Card key={quiz.id} className="p-5 hover:shadow-md transition-shadow">
             <div className="mb-4">
@@ -276,172 +277,7 @@ export default function TeacherQuizzesPage() {
     );
   };
 
-  const TeacherQuizView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Quản lý trắc nghiệm
-          </h1>
-          <p className="text-gray-600">
-            Tạo và theo dõi bài kiểm tra trắc nghiệm
-          </p>
-        </div>
-        <Link href="teacher/createQuiz">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Tạo bài kiểm tra mới
-          </Button>
-        </Link>
-      </div>
-
-      <Card className="bg-white">
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Tìm kiếm theo tên bài kiểm tra..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <div className="min-w-[200px]">
-              <Select
-                value={selectedSubject}
-                onValueChange={setSelectedSubject}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn môn học" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả môn học</SelectItem>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="min-w-[200px]">
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn lớp học" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả lớp học</SelectItem>
-                  {classes.map((className) => (
-                    <SelectItem key={className} value={className}>
-                      {className}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs theo Status */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as QuizStatus)}
-        className="w-full"
-      >
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="active" className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-            Đang mở ({statusCounts.active})
-          </TabsTrigger>
-          <TabsTrigger value="upcoming" className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-            Sắp diễn ra ({statusCounts.upcoming})
-          </TabsTrigger>
-          <TabsTrigger value="closed" className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-            Đã đóng ({statusCounts.closed})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Content cho từng tab */}
-        {(["active", "upcoming", "closed"] as QuizStatus[]).map((status) => (
-          <TabsContent key={status} value={status} className="mt-6">
-            {Object.keys(quizzesByClassAndStatus).length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-gray-500 text-lg">
-                    Không tìm thấy bài kiểm tra nào
-                  </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    Thử thay đổi bộ lọc hoặc tạo bài kiểm tra mới
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-8">
-                {Object.entries(quizzesByClassAndStatus).map(
-                  ([className, classData]) => {
-                    const quizzesForStatus = classData[status];
-
-                    // Chỉ hiển thị class nếu có quiz trong status này
-                    if (quizzesForStatus.length === 0) return null;
-
-                    return (
-                      <div key={className} className="space-y-4">
-                        {/* Class Header */}
-                        <div className="flex items-center gap-3">
-                          <h2 className="text-2xl font-semibold text-gray-800">
-                            Lớp {className}
-                          </h2>
-                          <Badge variant="outline" className="text-sm">
-                            {quizzesForStatus.length} bài kiểm tra
-                          </Badge>
-                        </div>
-
-                        {renderQuizCards(quizzesForStatus)}
-                      </div>
-                    );
-                  }
-                )}
-
-                {/* Hiển thị message nếu không có quiz nào trong status này */}
-                {Object.values(quizzesByClassAndStatus).every(
-                  (classData) => classData[status].length === 0
-                ) && (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <p className="text-gray-500 text-lg">
-                        Không có bài kiểm tra{" "}
-                        {status === "active"
-                          ? "đang mở"
-                          : status === "upcoming"
-                          ? "sắp diễn ra"
-                          : "đã đóng"}
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        Thử thay đổi bộ lọc hoặc tạo bài kiểm tra mới
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      {isFetching && (
-        <div className="text-sm text-gray-500 text-center py-4">
-          Đang đồng bộ dữ liệu…
-        </div>
-      )}
-    </div>
-  );
-
+  // --- RETURN CHÍNH (Đã bỏ component con TeacherQuizView) ---
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -454,7 +290,179 @@ export default function TeacherQuizzesPage() {
           onRetry={() => refetch()}
           variant="card"
         >
-          <TeacherQuizView />
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Quản lý trắc nghiệm
+                </h1>
+                <p className="text-gray-600">
+                  Tạo và theo dõi bài kiểm tra trắc nghiệm
+                </p>
+              </div>
+              <Link href="teacher/createQuiz">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tạo bài kiểm tra mới
+                </Button>
+              </Link>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <Card className="bg-white">
+              <CardContent>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Tìm kiếm theo tên bài kiểm tra..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  <div className="min-w-[200px]">
+                    <Select
+                      value={selectedSubject}
+                      onValueChange={setSelectedSubject}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn môn học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả môn học</SelectItem>
+                        {subjects.map((subject) => (
+                          <SelectItem key={subject} value={subject}>
+                            {subject}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="min-w-[200px]">
+                    <Select
+                      value={selectedClass}
+                      onValueChange={setSelectedClass}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn lớp học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả lớp học</SelectItem>
+                        {classes.map((className) => (
+                          <SelectItem key={className} value={className}>
+                            {className}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabs theo Status */}
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as QuizStatus)}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="active" className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Đang mở ({statusCounts.active})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="upcoming"
+                  className="flex items-center gap-2"
+                >
+                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                  Sắp diễn ra ({statusCounts.upcoming})
+                </TabsTrigger>
+                <TabsTrigger value="closed" className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                  Đã đóng ({statusCounts.closed})
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Content cho từng tab */}
+              {(["active", "upcoming", "closed"] as QuizStatus[]).map(
+                (status) => (
+                  <TabsContent key={status} value={status} className="mt-6">
+                    {Object.keys(quizzesByClassAndStatus).length === 0 ? (
+                      <Card>
+                        <CardContent className="p-8 text-center">
+                          <p className="text-gray-500 text-lg">
+                            Không tìm thấy bài kiểm tra nào
+                          </p>
+                          <p className="text-gray-400 text-sm mt-2">
+                            Thử thay đổi bộ lọc hoặc tạo bài kiểm tra mới
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="space-y-8">
+                        {Object.entries(quizzesByClassAndStatus).map(
+                          ([className, classData]) => {
+                            const quizzesForStatus = classData[status];
+
+                            // Chỉ hiển thị class nếu có quiz trong status này
+                            if (quizzesForStatus.length === 0) return null;
+
+                            return (
+                              <div key={className} className="space-y-4">
+                                {/* Class Header */}
+                                <div className="flex items-center gap-3">
+                                  <h2 className="text-2xl font-semibold text-gray-800">
+                                    Lớp {className}
+                                  </h2>
+                                  <Badge variant="outline" className="text-sm">
+                                    {quizzesForStatus.length} bài kiểm tra
+                                  </Badge>
+                                </div>
+
+                                {renderQuizCards(quizzesForStatus)}
+                              </div>
+                            );
+                          }
+                        )}
+
+                        {/* Hiển thị message nếu không có quiz nào trong status này */}
+                        {Object.values(quizzesByClassAndStatus).every(
+                          (classData) => classData[status].length === 0
+                        ) && (
+                          <Card>
+                            <CardContent className="p-8 text-center">
+                              <p className="text-gray-500 text-lg">
+                                Không có bài kiểm tra{" "}
+                                {status === "active"
+                                  ? "đang mở"
+                                  : status === "upcoming"
+                                  ? "sắp diễn ra"
+                                  : "đã đóng"}
+                              </p>
+                              <p className="text-gray-400 text-sm mt-2">
+                                Thử thay đổi bộ lọc hoặc tạo bài kiểm tra mới
+                              </p>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+                  </TabsContent>
+                )
+              )}
+            </Tabs>
+
+            {isFetching && (
+              <div className="text-sm text-gray-500 text-center py-4">
+                Đang đồng bộ dữ liệu…
+              </div>
+            )}
+          </div>
         </DataState>
       </div>
     </div>

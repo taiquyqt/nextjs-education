@@ -10,7 +10,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const apiClient = axios.create({
     baseURL: API_BASE,
     withCredentials: true,
-    timeout: 30000, // Tăng timeout lên 30s
+    timeout: 300000, // Tăng timeout lên 300s
     headers: {
         'Content-Type': 'application/json',
     }
@@ -88,7 +88,7 @@ export async function callGenerateAPI(params: {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
-                timeout: 60000, // 60s timeout cho AI processing
+                timeout: 300000, // 300s timeout cho AI processing
             }
         );
 
